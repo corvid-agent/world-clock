@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/preview.png" alt="world-clock preview" width="100%"></p>
+
 # World Clock & Timezone Converter
 
 A world clock with multiple city clocks, timezone converter, and meeting planner. Pixel aesthetic, no external APIs.
