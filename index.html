@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Clock &amp; Timezone Converter</title>
+<meta name="description" content="World clock with multiple city clocks, timezone converter, and meeting planner. Pixel aesthetic, no external APIs.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link href="https://fontlibrary.org/face/dogica" rel="stylesheet" type="text/css">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #08080f;
+  --card: #12121a;
+  --card-day: #16162a;
+  --card-night: #0e0e18;
+  --text: #e8e8f0;
+  --text-dim: #8888a0;
+  --accent: #8b5cf6;
+  --accent-glow: rgba(139, 92, 246, 0.3);
+  --secondary: #06b6d4;
+  --secondary-glow: rgba(6, 182, 212, 0.2);
+  --danger: #ef4444;
+  --sun: #fbbf24;
+  --moon: #94a3b8;
+  --border: #1e1e2e;
+  --font-pixel: 'DogicaPixelRegular', 'Press Start 2P', monospace;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+body {
+  font-family: var(--font-pixel);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+  font-size: 0.875rem;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+a { color: var(--secondary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 2rem 1rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(139,92,246,0.08) 0%, transparent 100%);
+}
+
+.header h1 {
+  font-size: 1.25rem;
+  color: var(--accent);
+  margin-bottom: 0.25rem;
+  letter-spacing: 2px;
+}
+
+.header p {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+/* Controls bar */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(18, 18, 26, 0.6);
+}
+
+.controls label {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.controls select,
+.controls input[type="time"],
+.controls button {
+  font-family: var(--font-pixel);
+  font-size: 0.7rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.controls select:focus-visible,
+.controls input[type="time"]:focus-visible,
+.controls button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn-add {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+  font-weight: bold;
+}
+
+.btn-add:hover { opacity: 0.85; }
+
+/* Tabs */
+.tabs {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  background: rgba(18, 18, 26, 0.4);
+}
+
+.tab-btn {
+  font-family: var(--font-pixel);
+  font-size: 0.65rem;
+  padding: 0.75rem 1.25rem;
+  background: transparent;
+  color: var(--text-dim);
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Tab panels */
+.tab-panel { display: none; padding: 1.5rem 1rem; }
+.tab-panel.active { display: block; }
+
+/* Clock grid */
+.clock-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Clock card */
+.clock-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  position: relative;
+  transition: border-color 0.3s;
+}
+
+.clock-card:hover {
+  border-color: var(--accent);
+}
+
+.clock-card.is-day {
+  background: linear-gradient(180deg, rgba(251,191,36,0.04) 0%, var(--card) 60%);
+}
+
+.clock-card.is-night {
+  background: linear-gradient(180deg, rgba(148,163,184,0.04) 0%, var(--card) 60%);
+}
+
+.clock-card.is-local {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.card-city {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.day-night-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.city-name {
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: var(--text);
+}
+
+.btn-remove {
+  font-family: var(--font-pixel);
+  font-size: 0.75rem;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.btn-remove:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.clock-body {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.analog-clock {
+  flex-shrink: 0;
+}
+
+.analog-clock svg {
+  width: 90px;
+  height: 90px;
+}
+
+.digital-time {
+  text-align: left;
+}
+
+.time-display {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: var(--text);
+  letter-spacing: 1px;
+}
+
+.ampm {
+  font-size: 0.7rem;
+  color: var(--secondary);
+  margin-left: 0.25rem;
+}
+
+.card-date {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  margin-bottom: 0.25rem;
+}
+
+.card-tz {
+  font-size: 0.55rem;
+  color: var(--text-dim);
+}
+
+/* Converter section */
+.converter {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.converter-input-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.converter-input-row label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.converter-input-row select,
+.converter-input-row input {
+  font-family: var(--font-pixel);
+  font-size: 0.7rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.converter-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.converter-result-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+}
+
+.converter-result-card .cr-city {
+  font-size: 0.7rem;
+  color: var(--secondary);
+  margin-bottom: 0.25rem;
+}
+
+.converter-result-card .cr-time {
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.converter-result-card .cr-date {
+  font-size: 0.55rem;
+  color: var(--text-dim);
+  margin-top: 0.15rem;
+}
+
+/* Meeting planner */
+.meeting-planner {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.planner-desc {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.timeline-container {
+  overflow-x: auto;
+  padding-bottom: 1rem;
+}
+
+.timeline-table {
+  width: 100%;
+  min-width: 700px;
+  border-collapse: collapse;
+}
+
+.timeline-table th,
+.timeline-table td {
+  font-size: 0.5rem;
+  padding: 0.3rem 0.15rem;
+  text-align: center;
+  border: 1px solid var(--border);
+}
+
+.timeline-table th {
+  background: var(--card);
+  color: var(--text-dim);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.timeline-table .city-label {
+  text-align: left;
+  padding-left: 0.5rem;
+  font-size: 0.55rem;
+  color: var(--secondary);
+  white-space: nowrap;
+  position: sticky;
+  left: 0;
+  background: var(--bg);
+  z-index: 1;
+  min-width: 80px;
+}
+
+.timeline-table td.hour-cell {
+  width: 2.5%;
+  min-width: 22px;
+  font-size: 0.45rem;
+  color: var(--text-dim);
+}
+
+.hour-cell.working {
+  background: rgba(139, 92, 246, 0.25);
+  color: var(--text);
+}
+
+.hour-cell.overlap {
+  background: rgba(6, 182, 212, 0.35);
+  color: #fff;
+  font-weight: bold;
+}
+
+.hour-cell.night-hour {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.overlap-legend {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.55rem;
+  color: var(--text-dim);
+}
+
+.legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+}
+
+/* Footer */
+.footer {
+  text-align: center;
+  padding: 1.5rem 1rem;
+  border-top: 1px solid var(--border);
+  margin-top: 2rem;
+}
+
+.footer p {
+  font-size: 0.55rem;
+  color: var(--text-dim);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .header h1 { font-size: 1rem; }
+  .clock-grid { grid-template-columns: 1fr; }
+  .controls { flex-direction: column; align-items: stretch; }
+  .tabs { overflow-x: auto; justify-content: flex-start; }
+  .tab-btn { flex-shrink: 0; }
+}
+
+/* Pixel scanline effect (subtle) */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::after { display: none; }
+}
+
+/* Screen reader only utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <h1>World Clock</h1>
+  <p>Timezone converter &amp; meeting planner</p>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Main sections">
+  <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="panel-clocks" id="tab-clocks">Clocks</button>
+  <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-converter" id="tab-converter">Converter</button>
+  <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-planner" id="tab-planner">Meeting Planner</button>
+</nav>
+
+<!-- Clocks Panel -->
+<section class="tab-panel active" id="panel-clocks" role="tabpanel" aria-labelledby="tab-clocks">
+  <div class="controls">
+    <div>
+      <label for="city-select">Add city:</label>
+      <select id="city-select" aria-label="Select a city to add">
+        <option value="">-- Choose --</option>
+      </select>
+    </div>
+    <button class="btn-add" id="btn-add-city" aria-label="Add selected city">+ Add</button>
+  </div>
+  <div class="clock-grid" id="clock-grid" role="list" aria-label="Active city clocks"></div>
+</section>
+
+<!-- Converter Panel -->
+<section class="tab-panel" id="panel-converter" role="tabpanel" aria-labelledby="tab-converter">
+  <div class="converter">
+    <div class="converter-input-row">
+      <div>
+        <label for="conv-source-tz">From timezone</label>
+        <select id="conv-source-tz"></select>
+      </div>
+      <div>
+        <label for="conv-time">Time</label>
+        <input type="time" id="conv-time" value="12:00">
+      </div>
+      <div>
+        <label for="conv-date">Date</label>
+        <input type="date" id="conv-date">
+      </div>
+    </div>
+    <div class="converter-results" id="converter-results" role="list" aria-label="Converted times"></div>
+  </div>
+</section>
+
+<!-- Meeting Planner Panel -->
+<section class="tab-panel" id="panel-planner" role="tabpanel" aria-labelledby="tab-planner">
+  <div class="meeting-planner">
+    <p class="planner-desc">Working hours (9 AM &ndash; 5 PM) overlap across your selected cities. Hours shown in each city's local time.</p>
+    <div class="timeline-container">
+      <table class="timeline-table" id="timeline-table" aria-label="Meeting planner timeline">
+        <thead id="timeline-head"></thead>
+        <tbody id="timeline-body"></tbody>
+      </table>
+    </div>
+    <div class="overlap-legend">
+      <span class="legend-item"><span class="legend-swatch" style="background:rgba(139,92,246,0.25)"></span> Working hours</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:rgba(6,182,212,0.35)"></span> All cities overlap</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:rgba(0,0,0,0.3)"></span> Night (6pm&ndash;6am)</span>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <p>World Clock &mdash; built with pixels &amp; Intl.DateTimeFormat</p>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── City/Timezone Data ────────────────────────────────
+  const CITIES = [
+    { name: 'New York', tz: 'America/New_York' },
+    { name: 'Los Angeles', tz: 'America/Los_Angeles' },
+    { name: 'Chicago', tz: 'America/Chicago' },
+    { name: 'London', tz: 'Europe/London' },
+    { name: 'Paris', tz: 'Europe/Paris' },
+    { name: 'Berlin', tz: 'Europe/Berlin' },
+    { name: 'Moscow', tz: 'Europe/Moscow' },
+    { name: 'Dubai', tz: 'Asia/Dubai' },
+    { name: 'Mumbai', tz: 'Asia/Kolkata' },
+    { name: 'Bangkok', tz: 'Asia/Bangkok' },
+    { name: 'Singapore', tz: 'Asia/Singapore' },
+    { name: 'Tokyo', tz: 'Asia/Tokyo' },
+    { name: 'Seoul', tz: 'Asia/Seoul' },
+    { name: 'Sydney', tz: 'Australia/Sydney' },
+    { name: 'Auckland', tz: 'Pacific/Auckland' },
+    { name: 'Honolulu', tz: 'Pacific/Honolulu' },
+    { name: 'S\u00e3o Paulo', tz: 'America/Sao_Paulo' },
+    { name: 'Cairo', tz: 'Africa/Cairo' },
+    { name: 'Lagos', tz: 'Africa/Lagos' },
+    { name: 'Istanbul', tz: 'Europe/Istanbul' },
+  ];
+
+  const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const LOCAL_CITY = { name: 'Local', tz: LOCAL_TZ, isLocal: true };
+
+  const DEFAULT_CITIES = ['Local', 'New York', 'London', 'Tokyo', 'Sydney', 'Dubai'];
+  const STORAGE_KEY = 'worldclock_cities';
+
+  // ── State ─────────────────────────────────────────────
+  let activeCities = loadCities();
+
+  function loadCities() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) { /* ignore */ }
+    return [...DEFAULT_CITIES];
+  }
+
+  function saveCities() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(activeCities)); } catch (e) { /* ignore */ }
+  }
+
+  function getCityData(name) {
+    if (name === 'Local') return LOCAL_CITY;
+    return CITIES.find(c => c.name === name) || null;
+  }
+
+  // ── Timezone Helpers ──────────────────────────────────
+  function getTimeInTZ(tz, date) {
+    date = date || new Date();
+    const parts = {};
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour: 'numeric', minute: 'numeric', second: 'numeric',
+      hour12: false,
+      year: 'numeric', month: 'numeric', day: 'numeric',
+      weekday: 'short',
+    }).formatToParts(date).forEach(p => { parts[p.type] = p.value; });
+    return {
+      hour: parseInt(parts.hour, 10),
+      minute: parseInt(parts.minute, 10),
+      second: parseInt(parts.second, 10),
+      year: parseInt(parts.year, 10),
+      month: parseInt(parts.month, 10),
+      day: parseInt(parts.day, 10),
+      weekday: parts.weekday,
+    };
+  }
+
+  function formatTime12(hour, minute) {
+    const h = hour % 12 || 12;
+    const m = String(minute).padStart(2, '0');
+    const ampm = hour < 12 ? 'AM' : 'PM';
+    return { time: h + ':' + m, ampm: ampm };
+  }
+
+  function formatDate(weekday, month, day) {
+    const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return weekday + ', ' + months[month] + ' ' + day;
+  }
+
+  function getTZAbbr(tz) {
+    try {
+      const str = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' }).format(new Date());
+      const parts = str.split(', ');
+      return parts.length > 1 ? parts[parts.length - 1].trim() : '';
+    } catch (e) { return ''; }
+  }
+
+  function getTZOffset(tz) {
+    try {
+      const str = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'longOffset' }).format(new Date());
+      const match = str.match(/GMT([+-]\d{1,2}(?::\d{2})?)/);
+      return match ? 'UTC' + match[1] : 'UTC';
+    } catch (e) { return ''; }
+  }
+
+  function isDaytime(hour) {
+    return hour >= 6 && hour < 18;
+  }
+
+  // ── Tabs ──────────────────────────────────────────────
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  const tabPanels = document.querySelectorAll('.tab-panel');
+
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabBtns.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
+      tabPanels.forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
+      document.getElementById(btn.getAttribute('aria-controls')).classList.add('active');
+
+      if (btn.id === 'tab-converter') updateConverter();
+      if (btn.id === 'tab-planner') updatePlanner();
+    });
+  });
+
+  // ── City Dropdown ─────────────────────────────────────
+  const citySelect = document.getElementById('city-select');
+  const btnAdd = document.getElementById('btn-add-city');
+
+  function populateCityDropdown() {
+    citySelect.innerHTML = '<option value="">-- Choose --</option>';
+    CITIES.forEach(c => {
+      if (!activeCities.includes(c.name)) {
+        const opt = document.createElement('option');
+        opt.value = c.name;
+        opt.textContent = c.name;
+        citySelect.appendChild(opt);
+      }
+    });
+  }
+
+  btnAdd.addEventListener('click', () => {
+    const val = citySelect.value;
+    if (!val) return;
+    activeCities.push(val);
+    saveCities();
+    populateCityDropdown();
+    renderClocks();
+    updateConverter();
+    updatePlanner();
+  });
+
+  function removeCity(name) {
+    activeCities = activeCities.filter(c => c !== name);
+    saveCities();
+    populateCityDropdown();
+    renderClocks();
+    updateConverter();
+    updatePlanner();
+  }
+
+  // ── SVG Analog Clock ──────────────────────────────────
+  function createAnalogSVG(id) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 100 100');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-hidden', 'true');
+
+    // Clock face
+    const face = document.createElementNS(ns, 'circle');
+    face.setAttribute('cx', '50'); face.setAttribute('cy', '50'); face.setAttribute('r', '46');
+    face.setAttribute('fill', 'none'); face.setAttribute('stroke', '#2a2a3e'); face.setAttribute('stroke-width', '2');
+    svg.appendChild(face);
+
+    // Hour markers
+    for (let i = 0; i < 12; i++) {
+      const angle = (i * 30) * Math.PI / 180;
+      const inner = 38;
+      const outer = 43;
+      const line = document.createElementNS(ns, 'line');
+      line.setAttribute('x1', String(50 + inner * Math.sin(angle)));
+      line.setAttribute('y1', String(50 - inner * Math.cos(angle)));
+      line.setAttribute('x2', String(50 + outer * Math.sin(angle)));
+      line.setAttribute('y2', String(50 - outer * Math.cos(angle)));
+      line.setAttribute('stroke', '#4a4a6a');
+      line.setAttribute('stroke-width', i % 3 === 0 ? '2' : '1');
+      svg.appendChild(line);
+    }
+
+    // Center dot
+    const center = document.createElementNS(ns, 'circle');
+    center.setAttribute('cx', '50'); center.setAttribute('cy', '50'); center.setAttribute('r', '2.5');
+    center.setAttribute('fill', '#8b5cf6');
+    svg.appendChild(center);
+
+    // Hour hand
+    const hourHand = document.createElementNS(ns, 'line');
+    hourHand.setAttribute('x1', '50'); hourHand.setAttribute('y1', '50');
+    hourHand.setAttribute('stroke', '#8b5cf6'); hourHand.setAttribute('stroke-width', '3');
+    hourHand.setAttribute('stroke-linecap', 'round');
+    hourHand.id = id + '-hour';
+    svg.appendChild(hourHand);
+
+    // Minute hand
+    const minHand = document.createElementNS(ns, 'line');
+    minHand.setAttribute('x1', '50'); minHand.setAttribute('y1', '50');
+    minHand.setAttribute('stroke', '#06b6d4'); minHand.setAttribute('stroke-width', '2');
+    minHand.setAttribute('stroke-linecap', 'round');
+    minHand.id = id + '-min';
+    svg.appendChild(minHand);
+
+    // Second hand
+    const secHand = document.createElementNS(ns, 'line');
+    secHand.setAttribute('x1', '50'); secHand.setAttribute('y1', '50');
+    secHand.setAttribute('stroke', '#ef4444'); secHand.setAttribute('stroke-width', '1');
+    secHand.setAttribute('stroke-linecap', 'round');
+    secHand.id = id + '-sec';
+    svg.appendChild(secHand);
+
+    return svg;
+  }
+
+  function updateAnalogHands(id, hour, minute, second) {
+    const hourAngle = ((hour % 12) + minute / 60) * 30;
+    const minAngle = (minute + second / 60) * 6;
+    const secAngle = second * 6;
+
+    setHand(id + '-hour', hourAngle, 22);
+    setHand(id + '-min', minAngle, 30);
+    setHand(id + '-sec', secAngle, 34);
+  }
+
+  function setHand(elemId, angle, length) {
+    const el = document.getElementById(elemId);
+    if (!el) return;
+    const rad = angle * Math.PI / 180;
+    el.setAttribute('x2', String(50 + length * Math.sin(rad)));
+    el.setAttribute('y2', String(50 - length * Math.cos(rad)));
+  }
+
+  // ── Render Clocks ─────────────────────────────────────
+  const clockGrid = document.getElementById('clock-grid');
+
+  function renderClocks() {
+    clockGrid.innerHTML = '';
+    activeCities.forEach((cityName, idx) => {
+      const city = getCityData(cityName);
+      if (!city) return;
+      const cardId = 'clock-' + idx;
+
+      const card = document.createElement('div');
+      card.className = 'clock-card';
+      card.setAttribute('role', 'listitem');
+      card.dataset.tz = city.tz;
+      card.dataset.cityName = cityName;
+      card.id = cardId;
+
+      // Header row
+      const header = document.createElement('div');
+      header.className = 'card-header';
+
+      const cityDiv = document.createElement('div');
+      cityDiv.className = 'card-city';
+
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'day-night-icon';
+      iconSpan.id = cardId + '-icon';
+      iconSpan.setAttribute('aria-hidden', 'true');
+      cityDiv.appendChild(iconSpan);
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'city-name';
+      nameSpan.textContent = city.isLocal ? 'Local (' + city.tz.split('/').pop().replace(/_/g, ' ') + ')' : cityName;
+      cityDiv.appendChild(nameSpan);
+      header.appendChild(cityDiv);
+
+      if (!city.isLocal) {
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'btn-remove';
+        removeBtn.setAttribute('aria-label', 'Remove ' + cityName);
+        removeBtn.textContent = '\u00d7';
+        removeBtn.addEventListener('click', () => removeCity(cityName));
+        header.appendChild(removeBtn);
+      }
+
+      card.appendChild(header);
+
+      // Clock body
+      const body = document.createElement('div');
+      body.className = 'clock-body';
+
+      const analogDiv = document.createElement('div');
+      analogDiv.className = 'analog-clock';
+      analogDiv.appendChild(createAnalogSVG(cardId));
+      body.appendChild(analogDiv);
+
+      const digitalDiv = document.createElement('div');
+      digitalDiv.className = 'digital-time';
+
+      const timeEl = document.createElement('div');
+      timeEl.className = 'time-display';
+      timeEl.id = cardId + '-time';
+      digitalDiv.appendChild(timeEl);
+
+      const dateEl = document.createElement('div');
+      dateEl.className = 'card-date';
+      dateEl.id = cardId + '-date';
+      digitalDiv.appendChild(dateEl);
+
+      const tzEl = document.createElement('div');
+      tzEl.className = 'card-tz';
+      tzEl.id = cardId + '-tz';
+      digitalDiv.appendChild(tzEl);
+
+      body.appendChild(digitalDiv);
+      card.appendChild(body);
+
+      clockGrid.appendChild(card);
+    });
+    updateClocks();
+  }
+
+  function updateClocks() {
+    const now = new Date();
+    activeCities.forEach((cityName, idx) => {
+      const city = getCityData(cityName);
+      if (!city) return;
+      const cardId = 'clock-' + idx;
+      const card = document.getElementById(cardId);
+      if (!card) return;
+
+      const t = getTimeInTZ(city.tz, now);
+      const f = formatTime12(t.hour, t.minute);
+
+      // Analog
+      updateAnalogHands(cardId, t.hour, t.minute, t.second);
+
+      // Digital
+      const timeEl = document.getElementById(cardId + '-time');
+      if (timeEl) timeEl.innerHTML = f.time + '<span class="ampm"> ' + f.ampm + '</span>';
+
+      // Date
+      const dateEl = document.getElementById(cardId + '-date');
+      if (dateEl) dateEl.textContent = formatDate(t.weekday, t.month, t.day);
+
+      // Timezone
+      const tzEl = document.getElementById(cardId + '-tz');
+      if (tzEl) tzEl.textContent = getTZAbbr(city.tz) + ' (' + getTZOffset(city.tz) + ')';
+
+      // Day/night
+      const day = isDaytime(t.hour);
+      const iconEl = document.getElementById(cardId + '-icon');
+      if (iconEl) iconEl.textContent = day ? '\u2600' : '\ud83c\udf19';
+      card.classList.toggle('is-day', day);
+      card.classList.toggle('is-night', !day);
+      card.classList.toggle('is-local', !!city.isLocal);
+    });
+  }
+
+  // ── Converter ─────────────────────────────────────────
+  const convSourceTZ = document.getElementById('conv-source-tz');
+  const convTime = document.getElementById('conv-time');
+  const convDate = document.getElementById('conv-date');
+  const converterResults = document.getElementById('converter-results');
+
+  function populateConverterDropdown() {
+    convSourceTZ.innerHTML = '';
+    // Add Local first
+    const localOpt = document.createElement('option');
+    localOpt.value = LOCAL_TZ;
+    localOpt.textContent = 'Local (' + LOCAL_TZ.split('/').pop().replace(/_/g, ' ') + ')';
+    convSourceTZ.appendChild(localOpt);
+
+    CITIES.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.tz;
+      opt.textContent = c.name;
+      convSourceTZ.appendChild(opt);
+    });
+  }
+
+  function updateConverter() {
+    const sourceTZ = convSourceTZ.value;
+    const timeVal = convTime.value || '12:00';
+    const dateVal = convDate.value;
+
+    const [h, m] = timeVal.split(':').map(Number);
+    // Build a date in the source timezone. We need to find the UTC equivalent.
+    // Create a date string and parse it relative to the source tz.
+    let refDate;
+    if (dateVal) {
+      const [y, mo, d] = dateVal.split('-').map(Number);
+      refDate = buildDateInTZ(sourceTZ, y, mo, d, h, m, 0);
+    } else {
+      const now = new Date();
+      const nowParts = getTimeInTZ(sourceTZ, now);
+      refDate = buildDateInTZ(sourceTZ, nowParts.year, nowParts.month, nowParts.day, h, m, 0);
+    }
+
+    converterResults.innerHTML = '';
+
+    // Show all active cities
+    const citiesToShow = activeCities.map(getCityData).filter(Boolean);
+    // Also show source TZ if not already included
+    citiesToShow.forEach(city => {
+      const t = getTimeInTZ(city.tz, refDate);
+      const f = formatTime12(t.hour, t.minute);
+
+      const card = document.createElement('div');
+      card.className = 'converter-result-card';
+      card.setAttribute('role', 'listitem');
+
+      const cityEl = document.createElement('div');
+      cityEl.className = 'cr-city';
+      cityEl.textContent = city.isLocal ? 'Local' : city.name;
+      card.appendChild(cityEl);
+
+      const timeEl = document.createElement('div');
+      timeEl.className = 'cr-time';
+      timeEl.textContent = f.time + ' ' + f.ampm;
+      card.appendChild(timeEl);
+
+      const dateEl = document.createElement('div');
+      dateEl.className = 'cr-date';
+      dateEl.textContent = formatDate(t.weekday, t.month, t.day) + ' \u2014 ' + getTZAbbr(city.tz);
+      card.appendChild(dateEl);
+
+      converterResults.appendChild(card);
+    });
+  }
+
+  function buildDateInTZ(tz, year, month, day, hour, minute, second) {
+    // Strategy: construct an approximate Date, then adjust based on offset difference
+    const guess = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+    const guessInTZ = getTimeInTZ(tz, guess);
+
+    // Calculate hour diff between what we want and what we got
+    let hourDiff = hour - guessInTZ.hour;
+    let dayDiff = day - guessInTZ.day;
+
+    // Handle month boundary
+    if (dayDiff > 15) dayDiff -= 31;
+    if (dayDiff < -15) dayDiff += 31;
+
+    const adjusted = new Date(guess.getTime() + (hourDiff * 3600 + (minute - guessInTZ.minute) * 60) * 1000 + dayDiff * 86400000);
+    return adjusted;
+  }
+
+  convSourceTZ.addEventListener('change', updateConverter);
+  convTime.addEventListener('input', updateConverter);
+  convDate.addEventListener('input', updateConverter);
+
+  // Set default date for converter
+  function setDefaultConvDate() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    convDate.value = y + '-' + m + '-' + d;
+  }
+
+  // ── Meeting Planner ───────────────────────────────────
+  const timelineHead = document.getElementById('timeline-head');
+  const timelineBody = document.getElementById('timeline-body');
+
+  function updatePlanner() {
+    timelineHead.innerHTML = '';
+    timelineBody.innerHTML = '';
+
+    // Header row: hours 0-23 in LOCAL time
+    const headRow = document.createElement('tr');
+    const cornerTH = document.createElement('th');
+    cornerTH.textContent = 'City';
+    cornerTH.className = 'city-label';
+    headRow.appendChild(cornerTH);
+
+    for (let h = 0; h < 24; h++) {
+      const th = document.createElement('th');
+      th.textContent = String(h).padStart(2, '0');
+      headRow.appendChild(th);
+    }
+    timelineHead.appendChild(headRow);
+
+    // For each city, compute working hours mapped to local reference hours
+    const now = new Date();
+    const citiesToShow = activeCities.map(getCityData).filter(Boolean);
+
+    // We'll use the first city (Local) as the reference timeline
+    const refTZ = LOCAL_TZ;
+
+    // For overlap: track which reference-hours are "working" in each city
+    const workingHoursByRefHour = new Array(24).fill(0);
+    const cityCount = citiesToShow.length;
+
+    citiesToShow.forEach(city => {
+      const row = document.createElement('tr');
+      const labelTD = document.createElement('td');
+      labelTD.className = 'city-label';
+      labelTD.textContent = city.isLocal ? 'Local' : city.name;
+      row.appendChild(labelTD);
+
+      for (let refH = 0; refH < 24; refH++) {
+        // Build a date at refH:00 in the reference tz today
+        const refParts = getTimeInTZ(refTZ, now);
+        const refDate = buildDateInTZ(refTZ, refParts.year, refParts.month, refParts.day, refH, 0, 0);
+        const cityTime = getTimeInTZ(city.tz, refDate);
+        const cityHour = cityTime.hour;
+
+        const td = document.createElement('td');
+        td.className = 'hour-cell';
+        td.textContent = String(cityHour).padStart(2, '0');
+
+        const isWorking = cityHour >= 9 && cityHour < 17;
+        const isNight = !isDaytime(cityHour);
+
+        if (isWorking) {
+          td.classList.add('working');
+          workingHoursByRefHour[refH]++;
+        } else if (isNight) {
+          td.classList.add('night-hour');
+        }
+
+        row.appendChild(td);
+      }
+
+      timelineBody.appendChild(row);
+    });
+
+    // Second pass: mark overlap columns
+    if (cityCount > 1) {
+      const rows = timelineBody.querySelectorAll('tr');
+      for (let refH = 0; refH < 24; refH++) {
+        if (workingHoursByRefHour[refH] === cityCount) {
+          rows.forEach(row => {
+            const cells = row.querySelectorAll('.hour-cell');
+            if (cells[refH]) {
+              cells[refH].classList.remove('working', 'night-hour');
+              cells[refH].classList.add('overlap');
+            }
+          });
+        }
+      }
+    }
+  }
+
+  // ── Init ──────────────────────────────────────────────
+  populateCityDropdown();
+  populateConverterDropdown();
+  setDefaultConvDate();
+  renderClocks();
+
+  // Update every second
+  setInterval(updateClocks, 1000);
+
+})();
+</script>
+</body>
+</html>
